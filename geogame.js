@@ -1,4 +1,4 @@
-// GeoGame.js - Добавляем функционал подсказок
+
 class GeoGame {
     constructor(mapContainerId, options = {}) {
         this.mapContainer = document.getElementById(mapContainerId);
@@ -32,6 +32,12 @@ class GeoGame {
     generateRussianCoords() {
         let lat, lon;
         let selectedCity = null;
+
+        // Проверяем, есть ли города в списке
+        if (this.settings.majorCitiesData.length === 0) {
+            console.error('Список городов пуст!');
+            return [55.7558, 37.6173]; // Возвращаем координаты Москвы по умолчанию
+        }
 
         const randomIndex = Math.floor(Math.random() * this.settings.majorCitiesData.length);
         selectedCity = this.settings.majorCitiesData[randomIndex];
@@ -67,7 +73,7 @@ class GeoGame {
 
         this.map = new ymaps.Map(this.mapContainer, {
             center: targetCoords,
-            zoom: this.settings.defaultZoom,
+            zoom: 12,
             type: this.settings.mapType,
             controls: [],
             behaviors: ['default']
@@ -83,10 +89,13 @@ class GeoGame {
 
         setTimeout(() => {
             if (this.map) {
+                this.map.setZoom(this.settings.defaultZoom, {
+                    duration: 1000, // Длительность анимации в ms
+                    timingFunction: 'ease-in-out' // Плавное ускорение и замедление
+                });
                 this.map.container.fitToViewport();
             }
-        }, 100);
-
+        }, 500); // Небольшая задержка перед началом анимации
         return this.map;
     }
 
@@ -259,8 +268,21 @@ class GeoGame {
         this.currentCity = null;
         this.hintPlacemarks = [];
     }
-    // GeoGame.js - добавьте этот метод в класс
-getAvailableCities() {
-    return Object.keys(window.cityHints || {});
-}
+    
+    // Получить список доступных городов
+    getAvailableCities() {
+        return Object.keys(window.cityHints || {});
+    }
+    
+    // Изменить тип карты
+    changeMapType(mapType) {
+        if (this.map) {
+            this.map.setType(mapType);
+        }
+    }
+    
+    // Установить список городов для игры
+    setCities(cities) {
+        this.settings.majorCitiesData = cities;
+    }
 }

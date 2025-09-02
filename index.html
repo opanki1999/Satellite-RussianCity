@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="ru">
 <head>
@@ -9,9 +10,68 @@
     <script src="./russian-cities.js"></script>
     <script src="./city-hints.js"></script>
     <script src="./geogame.js"></script>
+<style>
+</style>
 </head>
 <body>
     <div class="game-container">
+        <!-- Кнопка настроек -->
+        <button class="settings-button" onclick="toggleSettings()">⚙️</button>
+
+        <!-- Меню настроек -->
+        <div class="settings-menu" id="settingsMenu">
+            <h3>Настройки игры</h3>
+
+            <div class="settings-group">
+                <label for="mapType">Вид карты:</label>
+                <select id="mapType">
+                    <option value="satellite">Спутник</option>
+                    <option value="map">Схема</option>
+                    <option value="hybrid">Гибрид</option>
+                </select>
+            </div>
+
+            <div class="settings-group">
+                <label for="attemptsCount">Количество попыток:</label>
+                <select id="attemptsCount">
+                    <option value="1">1 попытка</option>
+                    <option value="2">2 попытки</option>
+                    <option value="3" selected>3 попытки</option>
+                    <option value="5">5 попыток</option>
+                    <option value="10">10 попыток</option>
+                    <option value="999">Без ограничений</option>
+                </select>
+            </div>
+
+            <div class="settings-group">
+                <label for="difficultyLevel">Уровень сложности:</label>
+                <select id="difficultyLevel">
+                    <option value="1">Легкий (только простые города)</option>
+                    <option value="2" selected>Средний (простые и средние)</option>
+                    <option value="3">Сложный (все города)</option>
+                </select>
+            </div>
+
+            <div class="settings-group">
+                <label for="hintsEnabled">Подсказки:</label>
+                <select id="hintsEnabled">
+                    <option value="true">Включены</option>
+                    <option value="false">Выключены</option>
+                </select>
+            </div>
+            <div class="settings-group">
+                <label for="autoRestart">Автозапуск новой игры:</label>
+                <select id="autoRestart">
+                    <option value="true">Включен (3 сек)</option>
+                    <option value="false" selected>Выключен</option>
+                </select>
+            </div>
+            <div class="settings-actions">
+                <button class="settings-cancel" onclick="closeSettings()">Отмена</button>
+                <button class="settings-save" onclick="saveSettings()">Сохранить</button>
+            </div>
+        </div>
+
         <!-- Плавающий интерфейс на карте -->
         <div class="floating-interface">
             <div class="search-row">
@@ -28,242 +88,480 @@
             </div>
         </div>
 
-        <button class="map-type-toggle" onclick="toggleMapType()">Схема</button>
         <div id="map"></div>
         <div id="result"></div>
+       <div id="attemptsCounter" class="attempts-counter">
+    Осталось попыток: <span id="attemptsLeft">3</span>
+</div>
+        </div>
         <div id="hintInfo" style="margin-top: 10px; padding: 10px; background: #f0f0f0; display: none;"></div>
     </div>
 
     <script>
-        let game;
-        let currentHints = [];
-        let currentHintIndex = 0;
-        let currentMapType = 'satellite';
-        let allCities = []; // Массив всех городов из подсказок
+    // Глобальные переменные
+    let game;
+    let currentHints = [];
+    let currentHintIndex = 0;
+    let currentMapType = 'satellite';
+    let allCities = [];
+    let citySearchIndex = null;
 
-        // Инициализация после загрузки API
-        ymaps.ready(() => {
-            console.log('API Яндекс.Карт загружено');
+    // Настройки игры
+    let gameSettings = {
+        mapType: 'satellite',
+        attemptsCount: 3,
+        difficultyLevel: 2,
+        hintsEnabled: true,
+        autoRestart: false, // Новая настройка
+        remainingAttempts: 3
+    };
 
-            // Получаем все города из подсказок
-            allCities = RussianCities.map(city => city.name);
-            console.log('Загружено городов для автодополнения:', allCities.length);
+    // Функции инициализации
+    function initializeGame() {
+        console.log('API Яндекс.Карт загружено');
 
-            game = new GeoGame('map', {
-                mapType: 'yandex#satellite',
-                defaultZoom: 15
-            });
+        // Загрузка настроек из localStorage
+        loadSettings();
 
-            startNewGame();
+        // Инициализация поискового индекса
+        initCitySearch();
 
-            // Обработчики событий для автодополнения
-            const cityInput = document.getElementById('cityGuess');
-            const autocompleteList = document.getElementById('autocompleteList');
-
-            cityInput.addEventListener('input', function() {
-                showAutocomplete(this.value);
-            });
-
-            cityInput.addEventListener('focus', function() {
-                if (this.value.length > 0) {
-                    showAutocomplete(this.value);
-                }
-            });
-
-            cityInput.addEventListener('blur', function() {
-                // Небольшая задержка перед скрытием, чтобы можно было кликнуть на вариант
-                setTimeout(() => {
-                    autocompleteList.style.display = 'none';
-                }, 200);
-            });
-
-            cityInput.addEventListener('keydown', function(e) {
-                if (e.key === 'Enter') {
-                    checkCityGuess();
-                } else if (e.key === 'ArrowDown') {
-                    e.preventDefault();
-                    focusNextAutocompleteItem(1);
-                } else if (e.key === 'ArrowUp') {
-                    e.preventDefault();
-                    focusNextAutocompleteItem(-1);
-                }
-            });
+        game = new GeoGame('map', {
+            mapType: 'yandex#' + gameSettings.mapType,
+            defaultZoom: 15
         });
 
-        // Функция показа автодополнения
-        function showAutocomplete(inputText) {
-            const autocompleteList = document.getElementById('autocompleteList');
+        startNewGame();
+        setupEventListeners();
+        updateUIFromSettings();
+    }
 
-            if (inputText.length < 2) {
-                autocompleteList.style.display = 'none';
-                return;
+    function loadSettings() {
+        const savedSettings = localStorage.getItem('geoGameSettings');
+        if (savedSettings) {
+            try {
+                const parsed = JSON.parse(savedSettings);
+                gameSettings = {...gameSettings, ...parsed};
+                gameSettings.remainingAttempts = gameSettings.attemptsCount;
+            } catch (e) {
+                console.error('Ошибка загрузки настроек:', e);
             }
-
-            const filteredCities = allCities.filter(city =>
-                city.toLowerCase().includes(inputText.toLowerCase())
-            );
-
-            if (filteredCities.length === 0) {
-                autocompleteList.style.display = 'none';
-                return;
-            }
-
-            // Сортируем по релевантности (города, начинающиеся с ввода, идут первыми)
-            filteredCities.sort((a, b) => {
-                const aStartsWith = a.toLowerCase().startsWith(inputText.toLowerCase());
-                const bStartsWith = b.toLowerCase().startsWith(inputText.toLowerCase());
-
-                if (aStartsWith && !bStartsWith) return -1;
-                if (!aStartsWith && bStartsWith) return 1;
-                return a.localeCompare(b);
-            });
-
-            // Ограничиваем количество предложений
-            const limitedCities = filteredCities.slice(0, 10);
-
-            autocompleteList.innerHTML = limitedCities.map(city =>
-                `<div class="autocomplete-item" onclick="selectCity('${city}')">${city}</div>`
-            ).join('');
-
-            autocompleteList.style.display = 'block';
         }
 
-        // Функция выбора города из списка
-        function selectCity(cityName) {
-            document.getElementById('cityGuess').value = cityName;
+        // Обновляем значения в форме настроек
+        document.getElementById('mapType').value = gameSettings.mapType;
+        document.getElementById('attemptsCount').value = gameSettings.attemptsCount;
+        document.getElementById('difficultyLevel').value = gameSettings.difficultyLevel;
+        document.getElementById('hintsEnabled').value = gameSettings.hintsEnabled.toString();
+        document.getElementById('autoRestart').value = gameSettings.autoRestart.toString(); // Новая настройка
+    }
+
+    function saveSettings() {
+        gameSettings.mapType = document.getElementById('mapType').value;
+        gameSettings.attemptsCount = parseInt(document.getElementById('attemptsCount').value);
+        gameSettings.difficultyLevel = parseInt(document.getElementById('difficultyLevel').value);
+        gameSettings.hintsEnabled = document.getElementById('hintsEnabled').value === 'true';
+        gameSettings.autoRestart = document.getElementById('autoRestart').value === 'true'; // Новая настройка
+        gameSettings.remainingAttempts = gameSettings.attemptsCount;
+
+        // Сохраняем в localStorage
+        localStorage.setItem('geoGameSettings', JSON.stringify({
+            mapType: gameSettings.mapType,
+            attemptsCount: gameSettings.attemptsCount,
+            difficultyLevel: gameSettings.difficultyLevel,
+            hintsEnabled: gameSettings.hintsEnabled,
+            autoRestart: gameSettings.autoRestart // Новая настройка
+        }));
+
+        // Применяем настройки
+        if (game) {
+            game.changeMapType('yandex#' + gameSettings.mapType);
+        }
+
+        updateUIFromSettings();
+        closeSettings();
+        startNewGame();
+    }
+
+    function updateUIFromSettings() {
+        // Обновляем кнопку подсказок
+        const hintButton = document.getElementById('hintButton');
+        hintButton.style.display = gameSettings.hintsEnabled ? 'block' : 'none';
+
+        // Обновляем счетчик попыток
+        const attemptsCounter = document.getElementById('attemptsCounter');
+        const attemptsLeft = document.getElementById('attemptsLeft');
+
+        // Обновляем видимость кнопки "Показать ответ"
+        updateRevealButtonVisibility();
+
+        if (gameSettings.attemptsCount === 999) {
+            attemptsCounter.style.display = 'none';
+        } else {
+            attemptsCounter.style.display = 'block';
+            attemptsLeft.textContent = gameSettings.remainingAttempts;
+        }
+    }
+
+    function updateRevealButtonVisibility() {
+        const revealButton = document.querySelector('.controls-row button:nth-child(2)');
+        if (revealButton) {
+            // Показываем кнопку "Показать ответ" ТОЛЬКО при неограниченных попытках
+            revealButton.style.display = gameSettings.attemptsCount === 999 ? 'block' : 'none';
+        }
+    }
+
+    function initCitySearch() {
+        allCities = RussianCities.map(city => city.name);
+        citySearchIndex = allCities.map(city => ({
+            original: city,
+            lower: city.toLowerCase()
+        }));
+        console.log('Загружено городов для автодополнения:', allCities.length);
+    }
+
+    function setupEventListeners() {
+        const cityInput = document.getElementById('cityGuess');
+        const autocompleteList = document.getElementById('autocompleteList');
+
+        cityInput.addEventListener('input', handleCityInput);
+        cityInput.addEventListener('focus', handleCityFocus);
+        cityInput.addEventListener('blur', handleCityBlur);
+        cityInput.addEventListener('keydown', handleCityKeydown);
+
+        autocompleteList.addEventListener('blur', handleAutocompleteBlur, true);
+
+        // Закрытие меню настроек при клике вне его
+        document.addEventListener('click', function(event) {
+            const settingsMenu = document.getElementById('settingsMenu');
+            const settingsButton = document.querySelector('.settings-button');
+
+            if (settingsMenu.style.display === 'block' &&
+                !settingsMenu.contains(event.target) &&
+                !settingsButton.contains(event.target)) {
+                closeSettings();
+            }
+        });
+    }
+
+    // Функции для меню настроек
+    function toggleSettings() {
+        const menu = document.getElementById('settingsMenu');
+        if (menu.style.display === 'block') {
+            closeSettings();
+        } else {
+            openSettings();
+        }
+    }
+
+    function openSettings() {
+        const menu = document.getElementById('settingsMenu');
+        menu.style.display = 'block';
+    }
+
+    function closeSettings() {
+        const menu = document.getElementById('settingsMenu');
+        menu.style.display = 'none';
+    }
+
+    // Обработчики событий
+    function handleCityInput() {
+        showAutocomplete(this.value);
+    }
+
+    function handleCityFocus() {
+        if (this.value.length > 0) {
+            showAutocomplete(this.value);
+        }
+    }
+
+    function handleCityBlur() {
+        setTimeout(() => {
+            const autocompleteList = document.getElementById('autocompleteList');
+            if (!autocompleteList.contains(document.activeElement)) {
+                autocompleteList.style.display = 'none';
+            }
+        }, 300);
+    }
+
+    function handleAutocompleteBlur(e) {
+        if (!this.contains(e.relatedTarget)) {
+            this.style.display = 'none';
+        }
+    }
+
+    function handleCityKeydown(e) {
+        const autocompleteList = document.getElementById('autocompleteList');
+        const items = document.querySelectorAll('.autocomplete-item');
+
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            checkCityGuess();
+        } else if (e.key === 'ArrowDown' && autocompleteList.style.display !== 'none') {
+            e.preventDefault();
+            if (items.length > 0) {
+                focusNextAutocompleteItem(1);
+            }
+        } else if (e.key === 'ArrowUp' && autocompleteList.style.display !== 'none') {
+            e.preventDefault();
+            if (items.length > 0) {
+                focusNextAutocompleteItem(-1);
+            }
+        } else if (e.key === 'Escape' && autocompleteList.style.display !== 'none') {
+            e.preventDefault();
+            autocompleteList.style.display = 'none';
+            this.focus();
+        }
+    }
+
+    function handleAutocompleteKey(event, cityName) {
+        if (event.key === 'Enter' || event.key === ' ') {
+            event.preventDefault();
+            selectCity(cityName);
+        } else if (event.key === 'ArrowDown') {
+            event.preventDefault();
+            focusNextAutocompleteItem(1);
+        } else if (event.key === 'ArrowUp') {
+            event.preventDefault();
+            focusNextAutocompleteItem(-1);
+        } else if (event.key === 'Escape') {
             document.getElementById('autocompleteList').style.display = 'none';
             document.getElementById('cityGuess').focus();
         }
+    }
 
-        // Функция навигации по автодополнению с клавиатуры
-        function focusNextAutocompleteItem(direction) {
-            const items = document.querySelectorAll('.autocomplete-item');
-            if (items.length === 0) return;
+    // Функции автодополнения
+    function showAutocomplete(inputText) {
+        const autocompleteList = document.getElementById('autocompleteList');
 
-            let focusedIndex = -1;
-            items.forEach((item, index) => {
-                if (item === document.activeElement) {
-                    focusedIndex = index;
+        if (inputText.length < 2) {
+            autocompleteList.style.display = 'none';
+            return;
+        }
+
+        const searchTerm = inputText.toLowerCase();
+        const filteredCities = citySearchIndex
+            .filter(item => item.lower.includes(searchTerm))
+            .sort((a, b) => {
+                const aStarts = a.lower.startsWith(searchTerm);
+                const bStarts = b.lower.startsWith(searchTerm);
+                if (aStarts && !bStarts) return -1;
+                if (!aStarts && bStarts) return 1;
+                return a.lower.localeCompare(b.lower);
+            })
+            .slice(0, 10)
+            .map(item => item.original);
+
+        if (filteredCities.length === 0) {
+            autocompleteList.style.display = 'none';
+            return;
+        }
+
+        autocompleteList.innerHTML = filteredCities.map(city =>
+            `<div class="autocomplete-item" tabindex="0"
+                  onclick="selectCity('${city}')"
+                  onkeydown="handleAutocompleteKey(event, '${city}')">
+                ${city}
+            </div>`
+        ).join('');
+
+        autocompleteList.style.display = 'block';
+    }
+
+    function selectCity(cityName) {
+        document.getElementById('cityGuess').value = cityName;
+        document.getElementById('autocompleteList').style.display = 'none';
+
+        // Убираем активный класс со всех элементов
+        document.querySelectorAll('.autocomplete-item').forEach(item => {
+            item.classList.remove('active');
+        });
+
+        document.getElementById('cityGuess').focus();
+    }
+
+    function focusNextAutocompleteItem(direction) {
+        const items = document.querySelectorAll('.autocomplete-item');
+        if (items.length === 0) return;
+
+        let currentIndex = -1;
+
+        // Находим текущий активный элемент
+        items.forEach((item, index) => {
+            if (item.classList.contains('active')) {
+                currentIndex = index;
+                item.classList.remove('active');
+            }
+        });
+
+        // Вычисляем следующий индекс
+        let nextIndex;
+        if (currentIndex === -1) {
+            nextIndex = direction > 0 ? 0 : items.length - 1;
+        } else {
+            nextIndex = currentIndex + direction;
+            if (nextIndex < 0) nextIndex = items.length - 1;
+            if (nextIndex >= items.length) nextIndex = 0;
+        }
+
+        // Устанавливаем фокус и активный класс
+        items[nextIndex].classList.add('active');
+        items[nextIndex].focus();
+        items[nextIndex].scrollIntoView({ block: 'nearest' });
+    }
+
+    // Функция автообновления игры
+    function scheduleAutoRestart() {
+        if (gameSettings.autoRestart) {
+            // Показываем обратный отсчет
+            const resultElement = document.getElementById('result');
+            const originalHtml = resultElement.innerHTML;
+            let secondsLeft = 3;
+
+            const countdownInterval = setInterval(() => {
+                resultElement.innerHTML = `${originalHtml}<br><small>Новая игра через ${secondsLeft}...</small>`;
+                secondsLeft--;
+
+                if (secondsLeft < 0) {
+                    clearInterval(countdownInterval);
+                    startNewGame();
                 }
-            });
-
-            let nextIndex;
-            if (focusedIndex === -1) {
-                nextIndex = direction > 0 ? 0 : items.length - 1;
-            } else {
-                nextIndex = focusedIndex + direction;
-                if (nextIndex < 0) nextIndex = items.length - 1;
-                if (nextIndex >= items.length) nextIndex = 0;
-            }
-
-            items[nextIndex].focus();
+            }, 1000);
         }
+    }
 
-        // Функция переключения режима карты
-        function toggleMapType() {
-            if (!game || !game.map) return;
+    // Основные игровые функции
+    function startNewGame() {
+        console.log('Запуск новой игры');
+        if (game) {
+            game.resetGame();
 
-            const toggleButton = document.querySelector('.map-type-toggle');
+            // Фильтруем города по уровню сложности
+            const filteredCities = RussianCities.filter(city =>
+                city.difficulty <= gameSettings.difficultyLevel
+            );
 
-            if (currentMapType === 'satellite') {
-                game.map.setType('yandex#map');
-                currentMapType = 'map';
-                toggleButton.textContent = 'Спутник';
-            } else {
-                game.map.setType('yandex#satellite');
-                currentMapType = 'satellite';
-                toggleButton.textContent = 'Схема';
-            }
-        }
+            // Обновляем список городов в игре
+            game.settings.majorCitiesData = filteredCities;
 
-        function startNewGame() {
-            console.log('Запуск новой игры');
-            if (game) {
-                game.resetGame();
-                game.initMap();
-                document.getElementById('result').innerHTML = '';
-                document.getElementById('cityGuess').value = '';
-                document.getElementById('autocompleteList').style.display = 'none';
-                document.getElementById('hintInfo').style.display = 'none';
-                document.getElementById('hintInfo').innerHTML = '';
-                document.getElementById('cityGuess').focus();
+            game.initMap();
+            document.getElementById('result').innerHTML = '';
+            document.getElementById('cityGuess').value = '';
+            document.getElementById('autocompleteList').style.display = 'none';
+            document.getElementById('hintInfo').style.display = 'none';
+            document.getElementById('hintInfo').innerHTML = '';
+            document.getElementById('cityGuess').focus();
 
-                currentHintIndex = 0;
+            // Сброс счетчика попыток
+            gameSettings.remainingAttempts = gameSettings.attemptsCount;
+            updateUIFromSettings();
 
-                const targetCity = game.getCurrentCity();
-                if (targetCity && window.hasHintsForCity(targetCity.name)) {
-                    currentHints = window.getHintsForCity(targetCity.name);
-                    console.log('Загружено подсказок:', currentHints.length);
-                } else {
-                    currentHints = [];
-                    console.log('Для города нет подсказок');
-                }
+            currentHintIndex = 0;
 
-                currentMapType = 'satellite';
-                const toggleButton = document.querySelector('.map-type-toggle');
-                if (toggleButton) {
-                    toggleButton.textContent = 'Схема';
-                }
-
-                setTimeout(hideMapControls, 0);
-            }
-        }
-
-        function showHint() {
-            if (currentHints.length === 0) {
-                alert('Для этого города нет подсказок');
-                return;
-            }
-
-            if (currentHintIndex >= currentHints.length) {
-                currentHintIndex = 0;
-            }
-
-            const hint = currentHints[currentHintIndex];
-            currentHintIndex++;
-            game.showHintPlacemark(hint);
-        }
-
-        function checkCityGuess() {
-            const userGuess = document.getElementById('cityGuess').value.trim();
             const targetCity = game.getCurrentCity();
-
-            if (!targetCity) {
-                document.getElementById('result').innerHTML = 'Информация о городе недоступна';
-                return;
+            if (targetCity && window.hasHintsForCity(targetCity.name)) {
+                currentHints = window.getHintsForCity(targetCity.name);
+                console.log('Загружено подсказок:', currentHints.length);
+            } else {
+                currentHints = [];
+                console.log('Для города нет подсказок');
             }
 
-            const isCorrect = userGuess.toLowerCase() === targetCity.name.toLowerCase();
+            currentMapType = gameSettings.mapType;
+            setTimeout(hideMapControls, 0);
+        }
+    }
 
-            document.getElementById('result').innerHTML = isCorrect ?
-                `✅ Правильно! Это ${targetCity.name}` :
-                `❌ Неправильно. Вы ввели: ${userGuess}, а правильно: ${targetCity.name}`;
-
-            document.getElementById('result').className = isCorrect ? 'correct' : 'incorrect';
+    function showHint() {
+        if (!gameSettings.hintsEnabled) {
+            alert('Подсказки отключены в настройках');
+            return;
         }
 
-        function revealAnswer() {
-            if (game) {
-                const targetCity = game.getCurrentCity();
-                if (targetCity) {
-                    document.getElementById('result').innerHTML = `Правильный город: ${targetCity.name}`;
-                    document.getElementById('result').className = 'answer';
+        if (currentHints.length === 0) {
+            alert('Для этого города нет подсказок');
+            return;
+        }
+
+        if (currentHintIndex >= currentHints.length) {
+            currentHintIndex = 0;
+        }
+
+        const hint = currentHints[currentHintIndex];
+        currentHintIndex++;
+        game.showHintPlacemark(hint);
+    }
+
+    function checkCityGuess() {
+        // Проверяем остаток попыток
+        if (gameSettings.attemptsCount !== 999 && gameSettings.remainingAttempts <= 0) {
+            const targetCity = game.getCurrentCity();
+            document.getElementById('result').innerHTML = `Попытки закончились! Начните новую игру. Это ${targetCity.name}`;
+            document.getElementById('result').className = 'incorrect';
+            scheduleAutoRestart(); // Автообновление
+            return;
+        }
+
+        const userGuess = document.getElementById('cityGuess').value.trim();
+        const targetCity = game.getCurrentCity();
+
+        if (!targetCity) {
+            document.getElementById('result').innerHTML = 'Информация о городе недоступна';
+            return;
+        }
+
+        const isCorrect = userGuess.toLowerCase() === targetCity.name.toLowerCase();
+
+        if (isCorrect) {
+            document.getElementById('result').innerHTML = `✅ Правильно! Это ${targetCity.name}`;
+            document.getElementById('result').className = 'correct';
+            scheduleAutoRestart(); // Автообновление
+        } else {
+            // Уменьшаем счетчик попыток
+            if (gameSettings.attemptsCount !== 999) {
+                gameSettings.remainingAttempts--;
+                updateUIFromSettings();
+            }
+
+            if (gameSettings.attemptsCount !== 999 && gameSettings.remainingAttempts <= 0) {
+                document.getElementById('result').innerHTML = `Попытки закончились! Начните новую игру. Это ${targetCity.name}`;
+                scheduleAutoRestart(); // Автообновление
+            } else {
+                if (gameSettings.attemptsCount === 999) {
+                    document.getElementById('result').innerHTML = `❌ Неправильно. Вы ввели: ${userGuess}`;
+                } else {
+                    document.getElementById('result').innerHTML = `❌ Неправильно. Вы ввели: ${userGuess}. Осталось попыток: ${gameSettings.remainingAttempts}`;
                 }
             }
+            document.getElementById('result').className = 'incorrect';
         }
+    }
 
-        function hideMapControls() {
-            const mapContainer = document.getElementById('map');
-            if (mapContainer) {
-                const controls = mapContainer.querySelectorAll('[class*="control"], [class*="copyright"]');
-                controls.forEach(element => {
-                    element.style.display = 'none';
-                });
+    function revealAnswer() {
+        if (game) {
+            const targetCity = game.getCurrentCity();
+            if (targetCity) {
+                document.getElementById('result').innerHTML =
+                    `<div class="answer-text">${targetCity.name.toUpperCase()}</div>`;
+                document.getElementById('result').className = 'answer';
+                scheduleAutoRestart(); // Автообновление после показа ответа
             }
         }
-    </script>
+    }
+
+    // Вспомогательные функции
+    function hideMapControls() {
+        const mapContainer = document.getElementById('map');
+        if (mapContainer) {
+            const controls = mapContainer.querySelectorAll('[class*="control"], [class*="copyright"]');
+            controls.forEach(element => {
+                element.style.display = 'none';
+            });
+        }
+    }
+
+    // Запуск при готовности
+    ymaps.ready(initializeGame);
+</script>
 </body>
 </html>
-
-
-

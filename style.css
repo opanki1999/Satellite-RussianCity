@@ -232,5 +232,131 @@ body {
         width: 100%;
     }
 }
+.autocomplete-item {
+            padding: 8px 12px;
+            cursor: pointer;
+            border-bottom: 1px solid #eee;
+        }
 
+        .autocomplete-item:hover,
+        .autocomplete-item:focus {
+            background-color: #f0f0f0;
+            outline: none;
+        }
 
+        .autocomplete-item.active {
+            background-color: #007bff;
+            color: white;
+        }
+
+        /* Стили для меню настроек */
+        .settings-menu {
+            position: fixed;
+            top: 10px;
+            right: 10px;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+            padding: 15px;
+            z-index: 1000;
+            min-width: 200px;
+            display: none;
+        }
+
+        .settings-menu h3 {
+            margin-top: 0;
+            margin-bottom: 15px;
+            text-align: center;
+        }
+
+        .settings-group {
+            margin-bottom: 15px;
+        }
+
+        .settings-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+
+        .settings-group select,
+        .settings-group input {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+
+        .settings-button {
+            position: fixed;
+            top: 10px;
+            right: 10px;
+            background: white;
+            border: none;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+            cursor: pointer;
+            z-index: 1001;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 18px;
+        }
+
+        .settings-button:hover {
+            background: #f5f5f5;
+        }
+
+        .settings-actions {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 15px;
+        }
+
+        .settings-actions button {
+            padding: 8px 15px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        .settings-save {
+            background: #007bff;
+            color: white;
+        }
+
+        .settings-save:hover {
+            background: #0056b3;
+        }
+
+        .settings-cancel {
+            background: #6c757d;
+            color: white;
+        }
+
+        .settings-cancel:hover {
+            background: #545b62;
+        }
+
+	.attempts-counter {
+		position: absolute;
+		top: 10px;
+		left: 10px;
+		background: rgba(248, 249, 250, 0.8) !important;
+		padding: 8px 12px;
+		border-radius: 15px;
+		font-size: 14px;
+		font-weight: bold;
+		z-index: 999;
+		backdrop-filter: blur(5px);
+		border: 1px solid rgba(0, 0, 0, 0.1);
+		box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+		display: none;
+	}
+
+	.attempts-counter span {
+		color: #007bff;
+		font-size: 16px;
+	}
