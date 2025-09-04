@@ -51,4 +51,4 @@
 
 1. Клонируйте репозиторий:
 ```bash
-git clone https://github.com/ваш-username/geoguesser-russia.git
+git clone https://[github.com/ваш-username/geoguesser-russia.git
