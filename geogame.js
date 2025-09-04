@@ -250,6 +250,8 @@ class GeoGame {
     let citySearchIndex = null;
     let allCityStats = [];
     let filteredCityStats = [];
+    let quizOptions = [];
+let correctQuizIndex = -1;
     // Firebase
         let firestore = null;
         let auth = null;
@@ -405,7 +407,8 @@ async function getFirebaseStats() {
         difficultyLevel: 2,
         hintsEnabled: true,
         autoRestart: false, // Новая настройка
-        remainingAttempts: 3
+        remainingAttempts: 3,
+        quizMode: false
     };
     // Функции для приветственного модального окна
     function showWelcomeModal() {
@@ -454,61 +457,75 @@ function resetWelcome() {
     }
 
     function loadSettings() {
-        const savedSettings = localStorage.getItem('geoGameSettings');
-        if (savedSettings) {
-            try {
-                const parsed = JSON.parse(savedSettings);
-                gameSettings = {...gameSettings, ...parsed};
-                gameSettings.remainingAttempts = gameSettings.attemptsCount;
-            } catch (e) {
-                console.error('Ошибка загрузки настроек:', e);
-            }
+    const savedSettings = localStorage.getItem('geoGameSettings');
+    if (savedSettings) {
+        try {
+            const parsed = JSON.parse(savedSettings);
+            gameSettings = {...gameSettings, ...parsed};
+            gameSettings.remainingAttempts = gameSettings.attemptsCount;
+        } catch (e) {
+            console.error('Ошибка загрузки настроек:', e);
         }
-
-        // Обновляем значения в форме настроек
-        document.getElementById('mapType').value = gameSettings.mapType;
-        document.getElementById('attemptsCount').value = gameSettings.attemptsCount;
-        document.getElementById('difficultyLevel').value = gameSettings.difficultyLevel;
-        document.getElementById('hintsEnabled').value = gameSettings.hintsEnabled.toString();
-        document.getElementById('autoRestart').value = gameSettings.autoRestart.toString();
     }
+
+    // Обновляем значения в форме настроек
+    document.getElementById('mapType').value = gameSettings.mapType;
+    document.getElementById('attemptsCount').value = gameSettings.attemptsCount;
+    document.getElementById('difficultyLevel').value = gameSettings.difficultyLevel;
+    document.getElementById('hintsEnabled').value = gameSettings.hintsEnabled.toString();
+    document.getElementById('autoRestart').value = gameSettings.autoRestart.toString();
+    document.getElementById('quizMode').value = gameSettings.quizMode.toString(); // Новая строка
+}
 
     function saveSettings() {
-        gameSettings.mapType = document.getElementById('mapType').value;
-        gameSettings.attemptsCount = parseInt(document.getElementById('attemptsCount').value);
-        gameSettings.difficultyLevel = parseInt(document.getElementById('difficultyLevel').value);
-        gameSettings.hintsEnabled = document.getElementById('hintsEnabled').value === 'true';
-        gameSettings.autoRestart = document.getElementById('autoRestart').value === 'true';
-        gameSettings.remainingAttempts = gameSettings.attemptsCount;
+    gameSettings.mapType = document.getElementById('mapType').value;
+    gameSettings.attemptsCount = parseInt(document.getElementById('attemptsCount').value);
+    gameSettings.difficultyLevel = parseInt(document.getElementById('difficultyLevel').value);
+    gameSettings.hintsEnabled = document.getElementById('hintsEnabled').value === 'true';
+    gameSettings.autoRestart = document.getElementById('autoRestart').value === 'true';
+    gameSettings.quizMode = document.getElementById('quizMode').value === 'true'; // Новая строка
+    gameSettings.remainingAttempts = gameSettings.attemptsCount;
 
-        // Сохраняем в localStorage
-        localStorage.setItem('geoGameSettings', JSON.stringify({
-            mapType: gameSettings.mapType,
-            attemptsCount: gameSettings.attemptsCount,
-            difficultyLevel: gameSettings.difficultyLevel,
-            hintsEnabled: gameSettings.hintsEnabled,
-            autoRestart: gameSettings.autoRestart // Новая настройка
-        }));
+    // Сохраняем в localStorage
+    localStorage.setItem('geoGameSettings', JSON.stringify({
+        mapType: gameSettings.mapType,
+        attemptsCount: gameSettings.attemptsCount,
+        difficultyLevel: gameSettings.difficultyLevel,
+        hintsEnabled: gameSettings.hintsEnabled,
+        autoRestart: gameSettings.autoRestart,
+        quizMode: gameSettings.quizMode // Новая строка
+    }));
 
-
-
-        updateUIFromSettings();
-        toggleSettings(true);
-        startNewGame();
-    }
+    updateUIFromSettings();
+    toggleSettings(true);
+    startNewGame();
+}
 
     function updateUIFromSettings() {
-        // Обновляем кнопку подсказок
-        const hintButton = document.getElementById('hintButton');
-        hintButton.style.display = gameSettings.hintsEnabled ? 'block' : 'none';
+    // Обновляем кнопку подсказок
+    const hintButton = document.getElementById('hintButton');
+    hintButton.style.display = gameSettings.hintsEnabled ? 'block' : 'none';
 
-        // Обновляем счетчик попыток
-        const attemptsCounter = document.getElementById('attemptsCounter');
-        const attemptsLeft = document.getElementById('attemptsLeft');
+    // Обновляем видимость поля ввода и викторины
+    const cityInput = document.getElementById('cityGuess');
+    const autocompleteContainer = document.querySelector('.autocomplete-container');
+    const quizContainer = document.getElementById('quizOptions');
+    const checkButton = document.querySelector('.search-row button'); // Кнопка "Проверить"
+    const attemptsCounter = document.getElementById('attemptsCounter');
 
-        // Обновляем видимость кнопки "Показать ответ"
-        updateRevealButtonVisibility();
+    if (gameSettings.quizMode) {
+        cityInput.style.display = 'none';
+        autocompleteContainer.style.display = 'none';
+        quizContainer.style.display = 'block';
+        checkButton.style.display = 'none'; // Скрываем кнопку "Проверить"
+        attemptsCounter.style.display = 'none'; // Скрываем счетчик попыток
+    } else {
+        cityInput.style.display = 'block';
+        autocompleteContainer.style.display = 'block';
+        quizContainer.style.display = 'none';
+        checkButton.style.display = 'block'; // Показываем кнопку "Проверить"
 
+        // Обновляем видимость счетчика попыток
         if (gameSettings.attemptsCount === 999) {
             attemptsCounter.style.display = 'none';
         } else {
@@ -516,6 +533,10 @@ function resetWelcome() {
             attemptsLeft.textContent = gameSettings.remainingAttempts;
         }
     }
+
+    // Обновляем видимость кнопки "Показать ответ"
+    updateRevealButtonVisibility();
+}
 
     function updateRevealButtonVisibility() {
         const revealButton = document.querySelector('.controls-row button:nth-child(2)');
@@ -785,8 +806,9 @@ function resetWelcome() {
 
     // Основные игровые функции
     function startNewGame() {
-        console.log('Запуск новой игры');
-        // Скрываем мини-карту если она была показана
+    console.log('Запуск новой игры');
+
+    // Скрываем мини-карту если она была показана
     const miniMapContainer = document.getElementById('miniMap');
     miniMapContainer.style.display = 'none';
 
@@ -799,44 +821,85 @@ function resetWelcome() {
             console.log('Ошибка при удалении мини-карты:', e);
         }
     }
-        if (game) {
-            game.resetGame();
 
-            // Фильтруем города по уровню сложности
-            const filteredCities = RussianCities.filter(city =>
-                city.difficulty <= gameSettings.difficultyLevel
-            );
+    // Очищаем контейнер мини-карты
+    miniMapContainer.innerHTML = '';
 
-            // Обновляем список городов в игре
-            game.settings.majorCitiesData = filteredCities;
+    if (game) {
+        game.resetGame();
 
-            game.initMap();
-            document.getElementById('result').innerHTML = '';
-            document.getElementById('cityGuess').value = '';
-            document.getElementById('autocompleteList').style.display = 'none';
-            document.getElementById('hintInfo').style.display = 'none';
-            document.getElementById('hintInfo').innerHTML = '';
-            document.getElementById('cityGuess').focus();
+        // Фильтруем города по уровню сложности
+        const filteredCities = RussianCities.filter(city =>
+            city.difficulty <= gameSettings.difficultyLevel
+        );
 
-            // Сброс счетчика попыток
-            gameSettings.remainingAttempts = gameSettings.attemptsCount;
-            updateUIFromSettings();
-
-            currentHintIndex = 0;
-
-            const targetCity = game.getCurrentCity();
-            if (targetCity && window.hasHintsForCity(targetCity.name)) {
-                currentHints = window.getHintsForCity(targetCity.name);
-                console.log('Загружено подсказок:', currentHints.length);
-            } else {
-                currentHints = [];
-                console.log('Для города нет подсказок');
-            }
-
-            currentMapType = gameSettings.mapType;
-            setTimeout(hideMapControls, 0);
+        // Проверяем, есть ли города после фильтрации
+        if (filteredCities.length === 0) {
+            console.error('Нет городов для выбранного уровня сложности!');
+            document.getElementById('result').innerHTML =
+                '<div class="error">Нет городов для выбранного уровня сложности. Измените настройки.</div>';
+            return;
         }
+
+        // Обновляем список городов в игре
+        game.settings.majorCitiesData = filteredCities;
+
+        game.initMap();
+        document.getElementById('result').innerHTML = '';
+        document.getElementById('cityGuess').value = '';
+        document.getElementById('autocompleteList').style.display = 'none';
+        document.getElementById('hintInfo').style.display = 'none';
+        document.getElementById('hintInfo').innerHTML = '';
+
+        // Сброс счетчика попыток
+        gameSettings.remainingAttempts = gameSettings.attemptsCount;
+        updateUIFromSettings();
+
+        currentHintIndex = 0;
+
+        const targetCity = game.getCurrentCity();
+
+        if (!targetCity) {
+            console.error('Не удалось получить целевой город!');
+            document.getElementById('result').innerHTML =
+                '<div class="error">Ошибка загрузки города. Попробуйте еще раз.</div>';
+            return;
+        }
+
+        console.log('Целевой город:', targetCity.name);
+
+        // Загружаем подсказки для города
+        if (window.hasHintsForCity && window.hasHintsForCity(targetCity.name)) {
+            currentHints = window.getHintsForCity(targetCity.name);
+            console.log('Загружено подсказок:', currentHints.length);
+        } else {
+            currentHints = [];
+            console.log('Для города нет подсказок');
+        }
+
+        // Генерируем варианты для викторины, если режим включен
+        if (gameSettings.quizMode) {
+            console.log('Режим викторины активен, генерируем варианты...');
+
+            // Небольшая задержка для гарантии, что DOM полностью готов
+            setTimeout(() => {
+                generateQuizOptions(targetCity);
+            }, 100);
+        } else {
+            // В обычном режиме фокусируемся на поле ввода
+            setTimeout(() => {
+                document.getElementById('cityGuess').focus();
+            }, 100);
+        }
+
+        currentMapType = gameSettings.mapType;
+        setTimeout(hideMapControls, 0);
+    } else {
+        console.error('Игра не инициализирована!');
+        document.getElementById('result').innerHTML =
+            '<div class="error">Ошибка инициализации игры. Перезагрузите страницу.</div>';
     }
+}
 
     function showHint() {
         if (!gameSettings.hintsEnabled) {
@@ -950,10 +1013,19 @@ function resetWelcome() {
                 `<div class="answer-text">${targetCity.name.toUpperCase()}</div>`;
             document.getElementById('result').className = 'answer';
 
-            // Показываем мини-карту с расположением города
-            showMiniMap(targetCity);
+            // В режиме викторины показываем правильный ответ на кнопках
+            if (gameSettings.quizMode) {
+                const quizButtons = document.querySelectorAll('.quiz-option');
+                quizButtons.forEach((button, index) => {
+                    button.disabled = true;
+                    if (index === correctQuizIndex) {
+                        button.classList.add('correct');
+                    }
+                });
+            }
 
-            scheduleAutoRestart(); // Автообновление после показа ответа
+            showMiniMap(targetCity);
+            scheduleAutoRestart();
         }
     }
 }
@@ -962,8 +1034,27 @@ function showMiniMap(city) {
     const miniMapContainer = document.getElementById('miniMap');
     miniMapContainer.style.display = 'block';
 
+    // Удаляем предыдущую мини-карту если она существует
+    if (window.miniMapInstance) {
+        try {
+            window.miniMapInstance.destroy();
+            window.miniMapInstance = null;
+        } catch (e) {
+            console.log('Ошибка при удалении мини-карты:', e);
+        }
+    }
+
+    // Очищаем контейнер мини-карты
+    miniMapContainer.innerHTML = '';
+
+    // Создаем новый контейнер для карты
+    const mapElement = document.createElement('div');
+    mapElement.style.width = '100%';
+    mapElement.style.height = '100%';
+    miniMapContainer.appendChild(mapElement);
+
     // Создаем мини-карту
-    const miniMap = new ymaps.Map('miniMap', {
+    const miniMap = new ymaps.Map(mapElement, {
         center: [city.lat, city.lon],
         zoom: 5,
         controls: []
@@ -1435,3 +1526,103 @@ function setActiveFilter(filterFunction) {
         document.addEventListener('DOMContentLoaded', function() {
             setTimeout(logTableDebugInfo, 1000);
         });
+
+function generateQuizOptions(targetCity) {
+    quizOptions = [];
+    correctQuizIndex = -1;
+
+    // Добавляем правильный ответ
+    quizOptions.push(targetCity.name);
+
+    // Добавляем 3 случайных неправильных ответа
+    const wrongCities = RussianCities.filter(city =>
+        city.name !== targetCity.name &&
+        city.difficulty <= gameSettings.difficultyLevel
+    );
+
+    // Перемешиваем массив и берем первые 3
+    const shuffledWrongCities = [...wrongCities].sort(() => Math.random() - 0.5).slice(0, 3);
+
+    shuffledWrongCities.forEach(city => {
+        quizOptions.push(city.name);
+    });
+
+    // Перемешиваем все варианты
+    quizOptions = quizOptions.sort(() => Math.random() - 0.5);
+
+    // Запоминаем индекс правильного ответа
+    correctQuizIndex = quizOptions.indexOf(targetCity.name);
+
+    console.log('Варианты викторины:', quizOptions);
+    console.log('Правильный ответ индекс:', correctQuizIndex, 'город:', targetCity.name);
+
+    // Обновляем кнопки
+    updateQuizButtons();
+}
+
+// Добавьте функцию обновления кнопок викторины
+function updateQuizButtons() {
+    const quizButtons = document.querySelectorAll('.quiz-option');
+    console.log('Найдено кнопок:', quizButtons.length);
+    console.log('Варианты для отображения:', quizOptions);
+
+    quizButtons.forEach((button, index) => {
+        if (quizOptions[index]) {
+            button.textContent = quizOptions[index];
+            button.disabled = false;
+            button.classList.remove('correct', 'incorrect');
+            console.log('Кнопка', index, 'установлена:', quizOptions[index]);
+        } else {
+            console.warn('Нет варианта для кнопки', index);
+        }
+    });
+}
+
+// Добавьте функцию выбора варианта в викторине
+function selectQuizOption(optionIndex) {
+    const selectedCity = quizOptions[optionIndex];
+    const targetCity = game.getCurrentCity();
+    const isCorrect = selectedCity === targetCity.name;
+
+    // Отключаем все кнопки после выбора
+    const quizButtons = document.querySelectorAll('.quiz-option');
+    quizButtons.forEach(button => {
+        button.disabled = true;
+    });
+
+    // Подсвечиваем правильные/неправильные ответы
+    quizButtons.forEach((button, index) => {
+        if (index === correctQuizIndex) {
+            button.classList.add('correct');
+        } else if (index === optionIndex && !isCorrect) {
+            button.classList.add('incorrect');
+        }
+    });
+
+    // Обрабатываем результат
+    const resultElement = document.getElementById('result');
+    if (isCorrect) {
+        resultElement.innerHTML = `✅ Правильно! Это ${targetCity.name}`;
+        resultElement.className = 'correct'; // Зеленый цвет
+        updateGameStats(true, targetCity);
+        showMiniMap(targetCity);
+        scheduleAutoRestart();
+    } else {
+        if (gameSettings.attemptsCount !== 999) {
+            gameSettings.remainingAttempts--;
+            updateUIFromSettings();
+        }
+
+        // Устанавливаем красный цвет для неправильного ответа
+        resultElement.innerHTML = `❌ Неправильно. Это ${targetCity.name}`;
+        resultElement.className = 'incorrect'; // Красный цвет
+        showMiniMap(targetCity);
+            scheduleAutoRestart();
+//        if (gameSettings.attemptsCount !== 999 && gameSettings.remainingAttempts <= 0) {
+//            resultElement.innerHTML = `Попытки закончились! Это ${targetCity.name}`;
+//            updateGameStats(false, targetCity);
+//            showMiniMap(targetCity);
+//            scheduleAutoRestart();
+//        }
+    }
+}

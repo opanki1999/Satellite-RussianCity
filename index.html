@@ -126,12 +126,21 @@
             </select>
         </div>
 
+        <div class="settings-group">
+    <label for="quizMode">Режим викторины:</label>
+    <select id="quizMode">
+        <option value="false">Выключен</option>
+        <option value="true">Включен</option>
+    </select>
+</div>
+
         <div class="settings-actions">
             <button class="settings-cancel" onclick="toggleSettings(true)">Отмена</button>
             <button class="settings-save" onclick="saveSettings()">Сохранить</button>
         </div>
     </div>
-<!-- Кнопка настроек -->
+
+
 <button class="settings-button" onclick="toggleSettings()">⚙️</button>
 
  <div id="attemptsCounter" class="attempts-counter">
@@ -140,7 +149,15 @@
 <div class="game-container">
     <div id="map"></div>
     <div id="result"></div>
-
+<!-- Контейнер для вариантов викторины -->
+<div id="quizOptions" class="quiz-options" style="display: none;">
+    <div class="quiz-grid">
+        <button class="quiz-option" onclick="selectQuizOption(0)"></button>
+        <button class="quiz-option" onclick="selectQuizOption(1)"></button>
+        <button class="quiz-option" onclick="selectQuizOption(2)"></button>
+        <button class="quiz-option" onclick="selectQuizOption(3)"></button>
+    </div>
+</div>
 
 </div>
 
