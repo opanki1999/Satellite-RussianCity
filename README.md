@@ -51,4 +51,4 @@
 
 1. Клонируйте репозиторий:
 ```bash
-git clone [[https://[github.com/opanki1999/Satellite-RussianCity.git]()]
+git clone [https://[github.com/opanki1999/Satellite-RussianCity.git]
