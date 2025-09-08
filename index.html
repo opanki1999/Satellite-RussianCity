@@ -76,69 +76,80 @@
     </div>
 </div>
 <!-- Меню настроек -->
+<!-- Меню настроек -->
 <div class="settings-menu" id="settingsMenu">
+    <h3>Настройки игры</h3>
 
-        <h3>Настройки игры</h3>
-
-        <div class="settings-group">
-            <label for="mapType">Вид карты:</label>
-            <select id="mapType">
-                <option value="satellite">Спутник</option>
-                <option value="map">Схема</option>
-                <option value="hybrid">Гибрид</option>
-            </select>
-        </div>
-
-        <div class="settings-group">
-            <label for="attemptsCount">Количество попыток:</label>
-            <select id="attemptsCount">
-                <option value="1">1 попытка</option>
-                <option value="2">2 попытки</option>
-                <option value="3" selected>3 попытки</option>
-                <option value="5">5 попыток</option>
-                <option value="10">10 попыток</option>
-                <option value="999">Без ограничений</option>
-            </select>
-        </div>
-
-        <div class="settings-group">
-            <label for="difficultyLevel">Уровень сложности:</label>
-            <select id="difficultyLevel">
-                <option value="1">Легкий (только простые города)</option>
-                <option value="2" selected>Средний (простые и средние)</option>
-                <option value="3">Сложный (все города)</option>
-            </select>
-        </div>
-
-        <div class="settings-group">
-            <label for="hintsEnabled">Подсказки:</label>
-            <select id="hintsEnabled">
-                <option value="true">Включены</option>
-                <option value="false">Выключены</option>
-            </select>
-        </div>
-
-        <div class="settings-group">
-            <label for="autoRestart">Автозапуск новой игры:</label>
-            <select id="autoRestart">
-                <option value="true">Включен (3 сек)</option>
-                <option value="false" selected>Выключен</option>
-            </select>
-        </div>
-
-        <div class="settings-group">
-    <label for="quizMode">Режим викторины:</label>
-    <select id="quizMode">
-        <option value="false">Выключен</option>
-        <option value="true">Включен</option>
-    </select>
+    <!-- Новый блок: Режим игры -->
+   <div class="settings-group">
+    <label>Режим игры:</label>
+    <div class="game-mode-toggle">
+        <label class="mode-option">
+            <input type="radio" name="gameMode" id="gameModeNormal" value="normal" checked>
+            Обычный
+        </label>
+        <label class="mode-option">
+            <input type="radio" name="gameMode" id="gameModeQuiz" value="quiz">
+            Викторина
+        </label>
+        <label class="mode-option">
+            <input type="radio" name="gameMode" id="gameModeDistance" value="distance">
+            Расстояния
+        </label>
+    </div>
 </div>
 
-        <div class="settings-actions">
-            <button class="settings-cancel" onclick="toggleSettings(true)">Отмена</button>
-            <button class="settings-save" onclick="saveSettings()">Сохранить</button>
-        </div>
+    <div class="settings-group">
+        <label for="mapType">Вид карты:</label>
+        <select id="mapType">
+            <option value="satellite">Спутник</option>
+            <option value="map">Схема</option>
+            <option value="hybrid">Гибрид</option>
+        </select>
     </div>
+
+    <div class="settings-group">
+        <label for="attemptsCount">Количество попыток:</label>
+        <select id="attemptsCount">
+            <option value="1">1 попытка</option>
+            <option value="2">2 попытки</option>
+            <option value="3" selected>3 попытки</option>
+            <option value="5">5 попыток</option>
+            <option value="10">10 попыток</option>
+            <option value="999">Без ограничений</option>
+        </select>
+    </div>
+
+    <div class="settings-group">
+        <label for="difficultyLevel">Уровень сложности:</label>
+        <select id="difficultyLevel">
+            <option value="1">Легкий (только простые города)</option>
+            <option value="2" selected>Средний (простые и средние)</option>
+            <option value="3">Сложный (все города)</option>
+        </select>
+    </div>
+
+    <div class="settings-group">
+        <label for="hintsEnabled">Подсказки:</label>
+        <select id="hintsEnabled">
+            <option value="true">Включены</option>
+            <option value="false">Выключены</option>
+        </select>
+    </div>
+
+    <div class="settings-group">
+        <label for="autoRestart">Автозапуск новой игры:</label>
+        <select id="autoRestart">
+            <option value="true">Включен (3 сек)</option>
+            <option value="false" selected>Выключен</option>
+        </select>
+    </div>
+
+    <div class="settings-actions">
+        <button class="settings-cancel" onclick="toggleSettings(true)">Отмена</button>
+        <button class="settings-save" onclick="saveSettings()">Сохранить</button>
+    </div>
+</div>
 
 
 <button class="settings-button" onclick="toggleSettings()">⚙️</button>
@@ -148,6 +159,8 @@
     </div>
 <div class="game-container">
     <div id="map"></div>
+        <div id="mapProtectionOverlay"></div>
+    </div>
     <div id="result"></div>
 <!-- Контейнер для вариантов викторины -->
 <div id="quizOptions" class="quiz-options" style="display: none;">

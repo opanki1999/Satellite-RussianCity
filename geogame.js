@@ -1,4 +1,32 @@
+// Глобальные переменные
+    let game;
+    let currentHints = [];
+    let currentHintIndex = 0;
+    let currentMapType = 'satellite';
+    let allCities = [];
+    let citySearchIndex = null;
+    let allCityStats = [];
+    let filteredCityStats = [];
+    let quizOptions = [];
+       let correctQuizIndex = -1;
+    // Firebase
+    let firestore = null;
+    let auth = null;
+    let currentUser = null;
+    let isFirebaseInitialized = false;
+    let autoRestartTimer = null;
 
+        // Настройки игры
+    let gameSettings = {
+        mapType: 'satellite',
+        attemptsCount: 3,
+        difficultyLevel: 2,
+        hintsEnabled: true,
+        autoRestart: false, // Новая настройка
+        remainingAttempts: 3,
+        quizMode: false
+    };
+    // Фун
 class GeoGame {
     constructor(mapContainerId, options = {}) {
         this.mapContainer = document.getElementById(mapContainerId);
@@ -26,6 +54,7 @@ class GeoGame {
         this.currentCity = null;
         this.hintPlacemarks = []; // Массив для хранения меток подсказок
          this.currentPlacemark = null; // Текущая активная метка подсказки
+
     }
 
     // Генерация координат в населенных пунктах России
@@ -55,39 +84,58 @@ class GeoGame {
 
     // Инициализация карты
     initMap() {
-        const targetCoords = this.generateRussianCoords();
 
-        if (this.map) {
-            this.map.destroy();
-        }
+    const targetCoords = this.generateRussianCoords();
 
-        this.map = new ymaps.Map(this.mapContainer, {
-            center: targetCoords,
-            zoom: 11,
-            type: this.settings.mapType,
-            controls: [],
-            behaviors: ['default']
-        });
-
-        this._configureMapAppearance();
-        this._disableZoom();
-
-        console.log('Координаты цели:', targetCoords);
-        if (this.currentCity) {
-            console.log('Город цели:', this.currentCity.name);
-        }
-
-        setTimeout(() => {
-            if (this.map) {
-                this.map.setZoom(this.settings.defaultZoom, {
-                    duration: 2000, // Длительность анимации в ms
-                    timingFunction: 'ease-in-out' // Плавное ускорение и замедление
-                });
-                this.map.container.fitToViewport();
-            }
-        }, 500); // Небольшая задержка перед началом анимации
-        return this.map;
+    if (this.map) {
+        this.map.destroy();
     }
+
+    this.map = new ymaps.Map(this.mapContainer, {
+        center: targetCoords,
+        zoom: 11,
+        type: this.settings.mapType,
+        controls: [],
+        behaviors: ['default']
+    });
+
+    this._configureMapAppearance();
+    this._disableZoom();
+
+    console.log('Координаты цели:', targetCoords);
+    if (this.currentCity) {
+        console.log('Город цели:', this.currentCity.name);
+    }
+
+    // Показываем защитный overlay
+    const overlay = document.getElementById('mapProtectionOverlay');
+    if (overlay) {
+        overlay.style.display = 'block';
+    }
+
+    setTimeout(() => {
+        if (this.map) {
+            this.map.setZoom(this.settings.defaultZoom, {
+                duration: 1500, // Длительность анимации в ms
+                timingFunction: 'ease-in-out' // Плавное ускорение и замедление
+            }).then(() => {
+                // Скрываем overlay после завершения анимации
+                if (overlay) {
+                    overlay.style.display = 'none';
+                }
+                this.map.container.fitToViewport();
+            }).catch(error => {
+                console.log('Ошибка анимации зума:', error);
+                // Все равно скрываем overlay при ошибке
+                if (overlay) {
+                    overlay.style.display = 'none';
+                }
+            });
+        }
+    }, 500); // Небольшая задержка перед началом анимации
+
+    return this.map;
+}
 
     // Показать подсказку на карте
     showHintPlacemark(hint) {
@@ -241,22 +289,7 @@ class GeoGame {
         return this.currentCity;
     }
 }
-    // Глобальные переменные
-    let game;
-    let currentHints = [];
-    let currentHintIndex = 0;
-    let currentMapType = 'satellite';
-    let allCities = [];
-    let citySearchIndex = null;
-    let allCityStats = [];
-    let filteredCityStats = [];
-    let quizOptions = [];
-let correctQuizIndex = -1;
-    // Firebase
-        let firestore = null;
-        let auth = null;
-        let currentUser = null;
-        let isFirebaseInitialized = false;
+
 
     // Настройки Firebase
     const firebaseConfig = {
@@ -400,19 +433,8 @@ async function getFirebaseStats() {
 }
 
 
-    // Настройки игры
-    let gameSettings = {
-        mapType: 'satellite',
-        attemptsCount: 3,
-        difficultyLevel: 2,
-        hintsEnabled: true,
-        autoRestart: false, // Новая настройка
-        remainingAttempts: 3,
-        quizMode: false
-    };
-    // Функции для приветственного модального окна
+// Функции для приветственного модального окна
     function showWelcomeModal() {
-    console.log('showWelcomeModal() вызвана');
     const hasSeenWelcome = localStorage.getItem('hasSeenWelcome');
 
     if (!hasSeenWelcome) {
@@ -452,17 +474,27 @@ function resetWelcome() {
         startNewGame();
         setupEventListeners();
         updateUIFromSettings();
-<!--        resetWelcome()-->
+//resetWelcome()
         showWelcomeModal();
     }
 
-    function loadSettings() {
+
+function loadSettings() {
     const savedSettings = localStorage.getItem('geoGameSettings');
     if (savedSettings) {
         try {
             const parsed = JSON.parse(savedSettings);
             gameSettings = {...gameSettings, ...parsed};
             gameSettings.remainingAttempts = gameSettings.attemptsCount;
+
+            // Устанавливаем правильные radio кнопки
+            if (gameSettings.quizMode === 'quiz') {
+                document.getElementById('gameModeQuiz').checked = true;
+            } else if (gameSettings.quizMode === 'distance') {
+                document.getElementById('gameModeDistance').checked = true;
+            } else {
+                document.getElementById('gameModeNormal').checked = true;
+            }
         } catch (e) {
             console.error('Ошибка загрузки настроек:', e);
         }
@@ -474,16 +506,24 @@ function resetWelcome() {
     document.getElementById('difficultyLevel').value = gameSettings.difficultyLevel;
     document.getElementById('hintsEnabled').value = gameSettings.hintsEnabled.toString();
     document.getElementById('autoRestart').value = gameSettings.autoRestart.toString();
-    document.getElementById('quizMode').value = gameSettings.quizMode.toString(); // Новая строка
 }
 
-    function saveSettings() {
+function saveSettings() {
     gameSettings.mapType = document.getElementById('mapType').value;
     gameSettings.attemptsCount = parseInt(document.getElementById('attemptsCount').value);
     gameSettings.difficultyLevel = parseInt(document.getElementById('difficultyLevel').value);
     gameSettings.hintsEnabled = document.getElementById('hintsEnabled').value === 'true';
     gameSettings.autoRestart = document.getElementById('autoRestart').value === 'true';
-    gameSettings.quizMode = document.getElementById('quizMode').value === 'true'; // Новая строка
+
+    // Определяем режим игры
+    if (document.getElementById('gameModeQuiz').checked) {
+        gameSettings.quizMode = 'quiz';
+    } else if (document.getElementById('gameModeDistance').checked) {
+        gameSettings.quizMode = 'distance';
+    } else {
+        gameSettings.quizMode = 'normal';
+    }
+
     gameSettings.remainingAttempts = gameSettings.attemptsCount;
 
     // Сохраняем в localStorage
@@ -493,7 +533,7 @@ function resetWelcome() {
         difficultyLevel: gameSettings.difficultyLevel,
         hintsEnabled: gameSettings.hintsEnabled,
         autoRestart: gameSettings.autoRestart,
-        quizMode: gameSettings.quizMode // Новая строка
+        quizMode: gameSettings.quizMode
     }));
 
     updateUIFromSettings();
@@ -501,31 +541,41 @@ function resetWelcome() {
     startNewGame();
 }
 
-    function updateUIFromSettings() {
-    // Обновляем кнопку подсказок
+function updateUIFromSettings() {
     const hintButton = document.getElementById('hintButton');
-    hintButton.style.display = gameSettings.hintsEnabled ? 'block' : 'none';
-
-    // Обновляем видимость поля ввода и викторины
     const cityInput = document.getElementById('cityGuess');
     const autocompleteContainer = document.querySelector('.autocomplete-container');
     const quizContainer = document.getElementById('quizOptions');
-    const checkButton = document.querySelector('.search-row button'); // Кнопка "Проверить"
+    const checkButton = document.querySelector('.search-row button');
     const attemptsCounter = document.getElementById('attemptsCounter');
 
-    if (gameSettings.quizMode) {
+    hintButton.style.display = gameSettings.hintsEnabled ? 'block' : 'none';
+
+    if (gameSettings.quizMode === 'quiz') {
         cityInput.style.display = 'none';
         autocompleteContainer.style.display = 'none';
         quizContainer.style.display = 'block';
-        checkButton.style.display = 'none'; // Скрываем кнопку "Проверить"
-        attemptsCounter.style.display = 'none'; // Скрываем счетчик попыток
+        checkButton.style.display = 'none';
+        attemptsCounter.style.display = 'none';
+    } else if (gameSettings.quizMode === 'distance') {
+        // В режиме расстояний показываем обычный интерфейс
+        cityInput.style.display = 'block';
+        autocompleteContainer.style.display = 'block';
+        quizContainer.style.display = 'none';
+        checkButton.style.display = 'block';
+
+        if (gameSettings.attemptsCount === 999) {
+            attemptsCounter.style.display = 'none';
+        } else {
+            attemptsCounter.style.display = 'block';
+            attemptsLeft.textContent = gameSettings.remainingAttempts;
+        }
     } else {
         cityInput.style.display = 'block';
         autocompleteContainer.style.display = 'block';
         quizContainer.style.display = 'none';
-        checkButton.style.display = 'block'; // Показываем кнопку "Проверить"
+        checkButton.style.display = 'block';
 
-        // Обновляем видимость счетчика попыток
         if (gameSettings.attemptsCount === 999) {
             attemptsCounter.style.display = 'none';
         } else {
@@ -534,7 +584,6 @@ function resetWelcome() {
         }
     }
 
-    // Обновляем видимость кнопки "Показать ответ"
     updateRevealButtonVisibility();
 }
 
@@ -772,17 +821,24 @@ function resetWelcome() {
     // Функция автообновления игры
     function scheduleAutoRestart() {
     if (gameSettings.autoRestart) {
+        // Очищаем предыдущий таймер, если он был
+        if (autoRestartTimer) {
+            clearInterval(autoRestartTimer);
+            autoRestartTimer = null;
+        }
+
         // Показываем обратный отсчет
         const resultElement = document.getElementById('result');
         const originalHtml = resultElement.innerHTML;
         let secondsLeft = 3;
 
-        const countdownInterval = setInterval(() => {
+        autoRestartTimer = setInterval(() => {
             resultElement.innerHTML = `${originalHtml}<br><small>Новая игра через ${secondsLeft}...</small>`;
             secondsLeft--;
 
             if (secondsLeft < 0) {
-                clearInterval(countdownInterval);
+                clearInterval(autoRestartTimer);
+                autoRestartTimer = null;
 
                 // Скрываем мини-карту перед началом новой игры
                 const miniMapContainer = document.getElementById('miniMap');
@@ -807,7 +863,10 @@ function resetWelcome() {
     // Основные игровые функции
     function startNewGame() {
     console.log('Запуск новой игры');
-
+    if (autoRestartTimer) {
+        clearInterval(autoRestartTimer);
+        autoRestartTimer = null;
+    }
     // Скрываем мини-карту если она была показана
     const miniMapContainer = document.getElementById('miniMap');
     miniMapContainer.style.display = 'none';
@@ -922,10 +981,12 @@ function resetWelcome() {
     }
 
     function checkCityGuess() {
+
+
     // Проверяем остаток попыток
     if (gameSettings.attemptsCount !== 999 && gameSettings.remainingAttempts <= 0) {
         const targetCity = game.getCurrentCity();
-        document.getElementById('result').innerHTML = `Попытки закончились! Начните новую игру. Это ${targetCity.name}`;
+        document.getElementById('result').innerHTML = `Попытки закончились! Это ${targetCity.name}`;
         document.getElementById('result').className = 'incorrect';
 
         // Обновляем статистику (не угадал)
@@ -967,7 +1028,7 @@ function resetWelcome() {
         }
 
         if (gameSettings.attemptsCount !== 999 && gameSettings.remainingAttempts <= 0) {
-            document.getElementById('result').innerHTML = `Попытки закончились! Начните новую игру. Это ${targetCity.name}`;
+            document.getElementById('result').innerHTML = `Попытки закончились! Это ${targetCity.name}`;
 
             // Обновляем статистику (не угадал)
             updateGameStats(false, targetCity);
@@ -977,25 +1038,16 @@ function resetWelcome() {
 
             scheduleAutoRestart(); // Автообновление
         } else {
-            // Обновляем статистику просмотренных городов (если еще есть попытки)
-            const stats = JSON.parse(localStorage.getItem('gameStats') || '{}');
-            if (!stats.seenCities) stats.seenCities = {};
-            if (!stats.seenCities[targetCity.name]) {
-                stats.seenCities[targetCity.name] = {
-                    name: targetCity.name,
-                    firstSeen: new Date().toISOString(),
-                    timesSeen: 1
-                };
+            // В режиме расстояний показываем ТОЛЬКО информацию о расстоянии
+            if (gameSettings.quizMode === 'distance') {
+                // Показываем только информацию о расстоянии, без текста "Неправильно"
+                showDistanceInfo(userGuess);
             } else {
-                stats.seenCities[targetCity.name].timesSeen += 1;
-                stats.seenCities[targetCity.name].lastSeen = new Date().toISOString();
-            }
-            localStorage.setItem('gameStats', JSON.stringify(stats));
-
-            if (gameSettings.attemptsCount === 999) {
-                document.getElementById('result').innerHTML = `❌ Неправильно. Вы ввели: ${userGuess}`;
-            } else {
-                document.getElementById('result').innerHTML = `❌ Неправильно. Вы ввели: ${userGuess}. Осталось попыток: ${gameSettings.remainingAttempts}`;
+                if (gameSettings.attemptsCount === 999) {
+                    document.getElementById('result').innerHTML = `❌ Неправильно. Вы ввели: ${userGuess}`;
+                } else {
+                    document.getElementById('result').innerHTML = `❌ Неправильно. Вы ввели: ${userGuess}. Осталось попыток: ${gameSettings.remainingAttempts}`;
+                }
             }
         }
         document.getElementById('result').className = 'incorrect';
@@ -1010,7 +1062,7 @@ function resetWelcome() {
         const targetCity = game.getCurrentCity();
         if (targetCity) {
             document.getElementById('result').innerHTML =
-                `<div class="answer-text">${targetCity.name.toUpperCase()}</div>`;
+                `<div class="answer-text">${targetCity.name}</div>`;
             document.getElementById('result').className = 'answer';
 
             // В режиме викторины показываем правильный ответ на кнопках
@@ -1618,11 +1670,121 @@ function selectQuizOption(optionIndex) {
         resultElement.className = 'incorrect'; // Красный цвет
         showMiniMap(targetCity);
             scheduleAutoRestart();
-//        if (gameSettings.attemptsCount !== 999 && gameSettings.remainingAttempts <= 0) {
-//            resultElement.innerHTML = `Попытки закончились! Это ${targetCity.name}`;
-//            updateGameStats(false, targetCity);
-//            showMiniMap(targetCity);
-//            scheduleAutoRestart();
-//        }
+
     }
+}
+
+// Обработка выбора режима игры (кнопки)
+function initGameModeButtons() {
+    const modeOptions = document.querySelectorAll('.mode-option');
+
+    modeOptions.forEach(option => {
+        option.addEventListener('click', function() {
+            // Убираем выделение со всех кнопок
+            modeOptions.forEach(btn => btn.classList.remove('selected'));
+
+            // Добавляем выделение текущей кнопке
+            this.classList.add('selected');
+
+            // Устанавливаем значение radio
+            const radio = this.querySelector('input[type="radio"]');
+            radio.checked = true;
+        });
+    });
+
+    // Инициализируем начальное состояние
+    const initialSelected = document.querySelector('.mode-option input[type="radio"]:checked');
+    if (initialSelected) {
+        initialSelected.parentElement.classList.add('selected');
+    }
+}
+
+// Вызовите эту функцию при загрузке страницы
+document.addEventListener('DOMContentLoaded', function() {
+    initGameModeButtons();
+});
+
+
+function calculateDistance(lat1, lon1, lat2, lon2) {
+    const R = 6371; // Радиус Земли в км
+    const dLat = (lat2 - lat1) * Math.PI / 180;
+    const dLon = (lon2 - lon1) * Math.PI / 180;
+
+    const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+              Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+              Math.sin(dLon/2) * Math.sin(dLon/2);
+
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+    return R * c; // Расстояние в км
+}
+
+// Функция для определения направления
+function getDirection(lat1, lon1, lat2, lon2) {
+    const dLon = (lon2 - lon1) * Math.PI / 180;
+    const y = Math.sin(dLon) * Math.cos(lat2 * Math.PI / 180);
+    const x = Math.cos(lat1 * Math.PI / 180) * Math.sin(lat2 * Math.PI / 180) -
+              Math.sin(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.cos(dLon);
+
+    const bearing = Math.atan2(y, x) * 180 / Math.PI;
+    return (bearing + 360) % 360;
+}
+
+
+function getDirectionEmoji(bearing) {
+    // Нормализуем bearing к диапазону 0-360
+    bearing = (bearing + 360) % 360;
+
+    const directions = [
+        {min: 337.5, max: 360, emoji: '⬆️', name: 'север'},
+        {min: 0, max: 22.5, emoji: '⬆️', name: 'север'},
+        {min: 22.5, max: 67.5, emoji: '↗️', name: 'северо-восток'},
+        {min: 67.5, max: 112.5, emoji: '➡️', name: 'восток'},
+        {min: 112.5, max: 157.5, emoji: '↘️', name: 'юго-восток'},
+        {min: 157.5, max: 202.5, emoji: '⬇️', name: 'юг'},
+        {min: 202.5, max: 247.5, emoji: '↙️', name: 'юго-запад'},
+        {min: 247.5, max: 292.5, emoji: '⬅️', name: 'запад'},
+        {min: 292.5, max: 337.5, emoji: '↖️', name: 'северо-запад'}
+    ];
+
+    const direction = directions.find(dir => bearing >= dir.min && bearing < dir.max);
+    return direction || {emoji: '📍', name: 'неизвестно'};
+}
+
+// Функция для отображения информации о расстоянии
+function showDistanceInfo(userCityName) {
+    const targetCity = game.getCurrentCity();
+    if (!targetCity) return;
+
+    // Находим координаты введенного города
+    const userCity = RussianCities.find(city =>
+        city.name.toLowerCase() === userCityName.toLowerCase()
+    );
+
+    if (!userCity) return;
+
+    // Рассчитываем расстояние и направление
+    const distance = calculateDistance(
+        userCity.lat, userCity.lon,
+        targetCity.lat, targetCity.lon
+    );
+
+    const bearing = getDirection(
+        userCity.lat, userCity.lon,
+        targetCity.lat, targetCity.lon
+    );
+
+    const direction = getDirectionEmoji(bearing);
+
+    // Создаем HTML для отображения
+    const distanceHTML = `
+        <div class="distance-info">
+            <div class="distance-direction">${direction.emoji}</div>
+            <div class="distance-text">Город находится ${direction.name} от ${userCity.name}</div>
+            <div class="distance-km">Расстояние: ${Math.round(distance)} км</div>
+        </div>
+    `;
+
+    // Добавляем к результату
+    const resultElement = document.getElementById('result');
+    resultElement.innerHTML += distanceHTML;
 }
